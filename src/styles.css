@@ -4,8 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Hebrew fonts via Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Assistant:wght@300;400;500;600;700&display=swap');
+/* Custom variable font */
+@font-face {
+  font-family: 'Discovery';
+  src: url('/src/assets/fonts/Discovery_Fs-VF.woff2') format('woff2-variations'),
+       url('/src/assets/fonts/Discovery_Fs-VF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 /*
  * Boutique CRM Design System
@@ -13,8 +20,8 @@
  */
 
 @theme inline {
-  --font-sans: 'Heebo', 'Assistant', system-ui, sans-serif;
-  --font-display: 'Heebo', system-ui, sans-serif;
+  --font-sans: 'Discovery', system-ui, sans-serif;
+  --font-display: 'Discovery', system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

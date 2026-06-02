@@ -32,6 +32,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Package, Plus, Loader2, AlertCircle, Boxes, PackageX, Layers } from "lucide-react";
 import { fmtCurrency } from "@/lib/format";
+import { ProductDetailSheet, type Product } from "@/components/ProductDetailSheet";
 
 type VariantLite = { stock_qty: number; min_stock_alert: number | null };
 
@@ -57,6 +58,8 @@ function ProductsPage() {
   const qc = useQueryClient();
   const { isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Product | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -162,7 +165,7 @@ function ProductsPage() {
                     v.stock_qty <= (v.min_stock_alert ?? 1),
                 );
                 return (
-                  <TableRow key={p.id}>
+                  <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => { setSelected(p as Product); setSheetOpen(true); }}>
                     <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                     <TableCell className="font-medium">{p.internal_name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.category ?? "-"}</TableCell>
@@ -188,6 +191,8 @@ function ProductsPage() {
           </Table>
         )}
       </Card>
+
+      <ProductDetailSheet product={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
     </AppShell>
   );
 }

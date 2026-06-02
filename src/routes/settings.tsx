@@ -152,7 +152,17 @@ function Suppliers() {
               <div className="space-y-2"><Label>תחום</Label><Input value={form.field} onChange={(e) => setForm({ ...form, field: e.target.value })} /></div>
               <div className="space-y-2"><Label>טלפון</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div className="space-y-2"><Label>מייל</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div className="space-y-2 col-span-2"><Label>תנאי תשלום</Label><Input value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} /></div>
+              <div className="space-y-2 col-span-2">
+                <Label>תנאי תשלום</Label>
+                <Select value={form.payment_terms} onValueChange={(v) => setForm({ ...form, payment_terms: v })}>
+                  <SelectTrigger><SelectValue placeholder="בחרי תנאי תשלום" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_TERMS.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <DialogFooter className="col-span-2">
                 <Button type="submit" disabled={createMut.isPending} className="gap-2">
                   {createMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}שמירה

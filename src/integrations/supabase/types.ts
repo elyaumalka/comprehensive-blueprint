@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string | null
+          goal_type: string
+          id: string
+          period_month: number | null
+          period_year: number
+          ref_key: string | null
+          target: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          goal_type: string
+          id?: string
+          period_month?: number | null
+          period_year: number
+          ref_key?: string | null
+          target?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string | null
+          goal_type?: string
+          id?: string
+          period_month?: number | null
+          period_year?: number
+          ref_key?: string | null
+          target?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_goals_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string

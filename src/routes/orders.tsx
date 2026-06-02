@@ -34,10 +34,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ClipboardList, Plus, Loader2 } from "lucide-react";
 import { fmtCurrency, fmtDate } from "@/lib/format";
+
+const ACTIVE_STATUSES = ["pending", "in_production", "ready", "awaiting_pickup"];
 
 export const Route = createFileRoute("/orders")({
   component: () => (
@@ -75,6 +78,7 @@ const schema = z.object({
 function OrdersPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"active" | "done">("active");
 
   const { data, isLoading } = useQuery({
     queryKey: ["orders"],
@@ -115,15 +119,24 @@ function OrdersPage() {
   });
 
   const updateStatusMut = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({ id, status, history }: { id: string; status: string; history: unknown }) => {
+      const prev = Array.isArray(history) ? history : [];
+      const newHistory = [...prev, { status, at: new Date().toISOString() }];
       const { error } = await supabase
         .from("orders")
-        .update({ status: status as "pending" | "in_production" | "ready" | "awaiting_pickup" | "completed" | "cancelled" })
+        .update({
+          status: status as "pending" | "in_production" | "ready" | "awaiting_pickup" | "completed" | "cancelled",
+          status_history: newHistory,
+        })
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["orders"] }),
   });
+
+  const filtered = (data ?? []).filter((o) =>
+    tab === "active" ? ACTIVE_STATUSES.includes(o.status) : !ACTIVE_STATUSES.includes(o.status),
+  );
 
   return (
     <AppShell>
@@ -147,13 +160,24 @@ function OrdersPage() {
         }
       />
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "active" | "done")}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="active">
+            פעילות ({(data ?? []).filter((o) => ACTIVE_STATUSES.includes(o.status)).length})
+          </TabsTrigger>
+          <TabsTrigger value="done">
+            שבוצעו / בוטלו ({(data ?? []).filter((o) => !ACTIVE_STATUSES.includes(o.status)).length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <Card className="shadow-soft overflow-hidden">
         {isLoading ? (
           <div className="py-16 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ) : !data?.length ? (
-          <EmptyState icon={ClipboardList} title="אין הזמנות עדיין" />
+        ) : !filtered.length ? (
+          <EmptyState icon={ClipboardList} title="אין הזמנות בתצוגה זו" />
         ) : (
           <Table>
             <TableHeader>
@@ -167,7 +191,7 @@ function OrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((o) => {
+              {filtered.map((o) => {
                 const overdue =
                   o.delivery_date &&
                   new Date(o.delivery_date) < new Date() &&
@@ -179,7 +203,7 @@ function OrdersPage() {
                     <TableCell>
                       <Select
                         value={o.status}
-                        onValueChange={(v) => updateStatusMut.mutate({ id: o.id, status: v })}
+                        onValueChange={(v) => updateStatusMut.mutate({ id: o.id, status: v, history: o.status_history })}
                       >
                         <SelectTrigger className="h-8 w-36">
                           <SelectValue />

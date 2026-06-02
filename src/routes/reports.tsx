@@ -13,6 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from "@/lib/auth";
 import { fmtCurrency } from "@/lib/format";
 import { Lock, Loader2, Printer } from "lucide-react";
@@ -86,13 +94,21 @@ function ReportsPage() {
       <Tabs defaultValue="sales">
         <TabsList className="mb-4 flex-wrap h-auto">
           <TabsTrigger value="sales">מכירות</TabsTrigger>
+          <TabsTrigger value="profit">רווחיות</TabsTrigger>
+          <TabsTrigger value="bestsellers">מוצרים מובילים</TabsTrigger>
           <TabsTrigger value="employees">השוואת עובדות</TabsTrigger>
+          <TabsTrigger value="customers">לקוחות</TabsTrigger>
+          <TabsTrigger value="canceldiscount">ביטולים והנחות</TabsTrigger>
           <TabsTrigger value="sources">מקורות הגעה</TabsTrigger>
           <TabsTrigger value="returns">החזרות</TabsTrigger>
           <TabsTrigger value="expenses">הוצאות</TabsTrigger>
         </TabsList>
         <TabsContent value="sales"><SalesReport year={year} /></TabsContent>
+        <TabsContent value="profit"><ProfitReport year={year} /></TabsContent>
+        <TabsContent value="bestsellers"><BestSellersReport year={year} /></TabsContent>
         <TabsContent value="employees"><EmployeesReport year={year} /></TabsContent>
+        <TabsContent value="customers"><CustomersReport /></TabsContent>
+        <TabsContent value="canceldiscount"><CancelDiscountReport year={year} /></TabsContent>
         <TabsContent value="sources"><SourcesReport year={year} /></TabsContent>
         <TabsContent value="returns"><ReturnsReport year={year} /></TabsContent>
         <TabsContent value="expenses"><ExpensesReport year={year} /></TabsContent>
@@ -303,6 +319,183 @@ function ReturnsReport({ year }: { year: number }) {
             <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
             <Tooltip />
             <Bar dataKey="value" name="כמות" fill={RED} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+    </Wrap>
+  );
+}
+
+// ---------- רווחיות (הכנסות מול הוצאות) ----------
+function ProfitReport({ year }: { year: number }) {
+  const { start, end } = yearRange(year);
+  const { data, isLoading } = useQuery({
+    queryKey: ["report-profit", year],
+    queryFn: async () => {
+      const [sales, incomes, expenses] = await Promise.all([
+        supabase.from("sales").select("total, created_at").gte("created_at", start).lte("created_at", end).eq("is_cancelled", false),
+        supabase.from("manual_incomes").select("amount, income_date").gte("income_date", `${year}-01-01`).lte("income_date", `${year}-12-31`),
+        supabase.from("expenses").select("amount, expense_date").gte("expense_date", `${year}-01-01`).lte("expense_date", `${year}-12-31`),
+      ]);
+      const months = MONTHS_HE.map((name) => ({ name, income: 0, expense: 0, profit: 0 }));
+      (sales.data ?? []).forEach((s) => { months[new Date(s.created_at).getMonth()].income += Number(s.total ?? 0); });
+      (incomes.data ?? []).forEach((i) => { months[new Date(i.income_date).getMonth()].income += Number(i.amount ?? 0); });
+      (expenses.data ?? []).forEach((e) => { months[new Date(e.expense_date).getMonth()].expense += Number(e.amount ?? 0); });
+      months.forEach((m) => { m.profit = m.income - m.expense; });
+      return months;
+    },
+  });
+  const income = (data ?? []).reduce((s, m) => s + m.income, 0);
+  const expense = (data ?? []).reduce((s, m) => s + m.expense, 0);
+  return (
+    <Wrap loading={isLoading}>
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <Kpi label={`הכנסות ${year}`} value={fmtCurrency(income)} />
+        <Kpi label="הוצאות" value={fmtCurrency(expense)} />
+        <Kpi label="רווח נקי" value={fmtCurrency(income - expense)} />
+      </div>
+      <Card className="p-5 shadow-soft">
+        <h3 className="font-semibold mb-4">רווח נקי חודשי {year} (הכנסות פחות הוצאות)</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data ?? []}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(v: number) => fmtCurrency(v)} />
+            <Legend />
+            <Bar dataKey="income" name="הכנסות" fill="#7C9885" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="expense" name="הוצאות" fill={RED} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="profit" name="רווח נקי" fill={GOLD} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+    </Wrap>
+  );
+}
+
+// ---------- מוצרים מובילים ----------
+function BestSellersReport({ year }: { year: number }) {
+  const { start, end } = yearRange(year);
+  const { data, isLoading } = useQuery({
+    queryKey: ["report-bestsellers", year],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sale_items")
+        .select("product_name, qty, line_total, sales!inner(created_at, is_cancelled)")
+        .gte("sales.created_at", start).lte("sales.created_at", end).eq("sales.is_cancelled", false);
+      const map: Record<string, { name: string; qty: number; revenue: number }> = {};
+      (data ?? []).forEach((it) => {
+        const k = it.product_name;
+        if (!map[k]) map[k] = { name: k, qty: 0, revenue: 0 };
+        map[k].qty += Number(it.qty ?? 0);
+        map[k].revenue += Number(it.line_total ?? 0);
+      });
+      return Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, 15);
+    },
+  });
+  return (
+    <Wrap loading={isLoading}>
+      <Card className="p-5 shadow-soft">
+        <h3 className="font-semibold mb-4">15 המוצרים הנמכרים ביותר {year}</h3>
+        {!data?.length ? <p className="text-sm text-muted-foreground py-6 text-center">אין נתוני מכירות</p> : (
+          <Table>
+            <TableHeader><TableRow><TableHead>מוצר</TableHead><TableHead>כמות שנמכרה</TableHead><TableHead>הכנסה</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {data.map((r, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell>{r.qty}</TableCell>
+                  <TableCell className="font-semibold">{fmtCurrency(r.revenue)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </Wrap>
+  );
+}
+
+// ---------- לקוחות (CLV / חוזרות / VIP) ----------
+function CustomersReport() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["report-customers"],
+    queryFn: async () => {
+      const [custs, sales] = await Promise.all([
+        supabase.from("customers").select("id, is_returning, is_vip, whatsapp_group"),
+        supabase.from("sales").select("total").eq("is_cancelled", false),
+      ]);
+      const total = (custs.data ?? []).length;
+      const totalRevenue = (sales.data ?? []).reduce((s, r) => s + Number(r.total ?? 0), 0);
+      return {
+        total,
+        returning: (custs.data ?? []).filter((c) => c.is_returning).length,
+        vip: (custs.data ?? []).filter((c) => c.is_vip).length,
+        whatsapp: (custs.data ?? []).filter((c) => c.whatsapp_group).length,
+        clv: total ? totalRevenue / total : 0,
+      };
+    },
+  });
+  return (
+    <Wrap loading={isLoading}>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Kpi label="סך לקוחות" value={String(data?.total ?? 0)} />
+        <Kpi label="לקוחות חוזרות" value={String(data?.returning ?? 0)} />
+        <Kpi label="לקוחות VIP" value={String(data?.vip ?? 0)} />
+        <Kpi label="בקבוצת וואטסאפ" value={String(data?.whatsapp ?? 0)} />
+        <Kpi label="ערך לקוח ממוצע (CLV)" value={fmtCurrency(data?.clv ?? 0)} />
+      </div>
+    </Wrap>
+  );
+}
+
+// ---------- ביטולים והנחות ----------
+function CancelDiscountReport({ year }: { year: number }) {
+  const { start, end } = yearRange(year);
+  const { data, isLoading } = useQuery({
+    queryKey: ["report-canceldiscount", year],
+    queryFn: async () => {
+      const { data } = await supabase.from("sales").select("created_at, is_cancelled, discount").gte("created_at", start).lte("created_at", end);
+      const months = MONTHS_HE.map((name) => ({ name, cancels: 0, discount: 0 }));
+      (data ?? []).forEach((s) => {
+        const m = new Date(s.created_at).getMonth();
+        if (s.is_cancelled) months[m].cancels += 1;
+        months[m].discount += Number(s.discount ?? 0);
+      });
+      return {
+        months,
+        totalCancels: (data ?? []).filter((s) => s.is_cancelled).length,
+        totalDiscount: (data ?? []).reduce((s, r) => s + Number(r.discount ?? 0), 0),
+      };
+    },
+  });
+  return (
+    <Wrap loading={isLoading}>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Kpi label="סה״כ ביטולים" value={String(data?.totalCancels ?? 0)} />
+        <Kpi label="סה״כ הנחות שניתנו" value={fmtCurrency(data?.totalDiscount ?? 0)} />
+      </div>
+      <Card className="p-5 shadow-soft mb-4">
+        <h3 className="font-semibold mb-4">ביטולים לפי חודש {year}</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data?.months ?? []}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+            <Tooltip />
+            <Bar dataKey="cancels" name="ביטולים" fill={RED} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <Card className="p-5 shadow-soft">
+        <h3 className="font-semibold mb-4">הנחות לפי חודש {year}</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data?.months ?? []}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(v: number) => fmtCurrency(v)} />
+            <Bar dataKey="discount" name="הנחות" fill={GOLD} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>

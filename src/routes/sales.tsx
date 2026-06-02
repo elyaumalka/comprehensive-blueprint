@@ -34,9 +34,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ShoppingBag, Loader2, Plus, Trash2, Ban } from "lucide-react";
+import { ShoppingBag, Loader2, Plus, Trash2, Ban, AlertCircle } from "lucide-react";
 import { fmtCurrency, fmtDateTime } from "@/lib/format";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { useMyShift } from "@/components/ShiftClock";
 
 export const Route = createFileRoute("/sales")({
   component: () => (
@@ -147,6 +149,9 @@ function SalesPage() {
 }
 
 function NewSaleForm({ onDone }: { onDone: () => void }) {
+  const { isAdmin } = useAuth();
+  const { employee: myEmployee, hasOpenShift } = useMyShift();
+  const blockedByShift = !isAdmin && !!myEmployee && !hasOpenShift;
   const [customerId, setCustomerId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
@@ -188,6 +193,7 @@ function NewSaleForm({ onDone }: { onDone: () => void }) {
 
   const saveMut = useMutation({
     mutationFn: async () => {
+      if (blockedByShift) throw new Error("יש לפתוח משמרת לפני רישום מכירה");
       if (!items.length) throw new Error("יש להוסיף לפחות פריט אחד");
       if (discountType !== "none" && discountValue > 0 && !discountReason.trim()) throw new Error("יש לציין סיבת הנחה");
       const { data: sale, error } = await supabase.from("sales").insert({
@@ -220,6 +226,12 @@ function NewSaleForm({ onDone }: { onDone: () => void }) {
   return (
     <DialogContent dir="rtl" className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>מכירה חדשה</DialogTitle></DialogHeader>
+      {blockedByShift && (
+        <div className="flex items-center gap-2 rounded-lg bg-alert/10 text-alert px-3 py-2 text-sm">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          לא ניתן לרשום מכירה לפני פתיחת משמרת. לחצי על "התחלת משמרת" בראש המסך.
+        </div>
+      )}
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -351,7 +363,7 @@ function NewSaleForm({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       <DialogFooter>
-        <Button disabled={saveMut.isPending || !items.length} onClick={() => saveMut.mutate()} className="gap-2">
+        <Button disabled={saveMut.isPending || !items.length || blockedByShift} onClick={() => saveMut.mutate()} className="gap-2">
           {saveMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}שמירת מכירה
         </Button>
       </DialogFooter>

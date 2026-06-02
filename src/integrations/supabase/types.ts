@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          changes: Json | null
+          created_at: string
+          id: string
+          performed_by: string | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          performed_by?: string | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          performed_by?: string | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       business_goals: {
         Row: {
           created_at: string
@@ -60,36 +90,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      audit_log: {
-        Row: {
-          action: string
-          changes: Json | null
-          created_at: string
-          id: string
-          performed_by: string | null
-          record_id: string | null
-          table_name: string
-        }
-        Insert: {
-          action: string
-          changes?: Json | null
-          created_at?: string
-          id?: string
-          performed_by?: string | null
-          record_id?: string | null
-          table_name: string
-        }
-        Update: {
-          action?: string
-          changes?: Json | null
-          created_at?: string
-          id?: string
-          performed_by?: string | null
-          record_id?: string | null
-          table_name?: string
-        }
-        Relationships: []
       }
       calendar_events: {
         Row: {
@@ -265,7 +265,56 @@ export type Database = {
           updated_at?: string
           whatsapp_group?: boolean
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_referred_by_employee_id_fkey"
+            columns: ["referred_by_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          employee_id: string
+          expense_date: string
+          id: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id: string
+          expense_date?: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id?: string
+          expense_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employees: {
         Row: {
@@ -314,47 +363,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      employee_expenses: {
-        Row: {
-          amount: number
-          category: string
-          created_at: string
-          created_by: string | null
-          description: string | null
-          employee_id: string
-          expense_date: string
-          id: string
-        }
-        Insert: {
-          amount?: number
-          category?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          employee_id: string
-          expense_date?: string
-          id?: string
-        }
-        Update: {
-          amount?: number
-          category?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          employee_id?: string
-          expense_date?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_expenses_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       expenses: {
         Row: {
@@ -1270,7 +1278,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "staff" | "viewer"
+      app_role: "admin" | "staff" | "viewer" | "accounting" | "marketing"
       expense_category:
         | "production_current"
         | "production_next"
@@ -1432,7 +1440,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "staff", "viewer"],
+      app_role: ["admin", "staff", "viewer", "accounting", "marketing"],
       expense_category: [
         "production_current",
         "production_next",

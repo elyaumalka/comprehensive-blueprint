@@ -17,7 +17,7 @@ import {
   BarChart3,
   History,
 } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { useAuth, type AppRole } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ interface NavItem {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
-  adminOnly?: boolean;
+  roles?: AppRole[]; // אם מוגדר — מוצג רק לתפקידים האלו (מנהלת תמיד רואה הכל)
 }
 
 const navItems: NavItem[] = [
@@ -36,20 +36,20 @@ const navItems: NavItem[] = [
   { to: "/sales", label: "מכירות", icon: ShoppingBag },
   { to: "/orders", label: "הזמנות", icon: ClipboardList },
   { to: "/returns", label: "החזרות והחלפות", icon: RotateCcw },
-  { to: "/accounting", label: "הנהלת חשבונות", icon: Wallet, adminOnly: true },
-  { to: "/reports", label: "דוחות וניתוחים", icon: BarChart3, adminOnly: true },
-  { to: "/employees", label: "עובדות ושעון", icon: UserCog, adminOnly: true },
+  { to: "/accounting", label: "הנהלת חשבונות", icon: Wallet, roles: ["admin", "accounting"] },
+  { to: "/reports", label: "דוחות וניתוחים", icon: BarChart3, roles: ["admin", "accounting"] },
+  { to: "/employees", label: "עובדות ושעון", icon: UserCog, roles: ["admin", "accounting"] },
   { to: "/calendar", label: "יומן ומשימות", icon: Calendar },
-  { to: "/campaigns", label: "קמפיינים", icon: Megaphone, adminOnly: true },
-  { to: "/history", label: "היסטוריית שינויים", icon: History, adminOnly: true },
-  { to: "/settings", label: "הגדרות", icon: Settings, adminOnly: true },
+  { to: "/campaigns", label: "קמפיינים", icon: Megaphone, roles: ["admin", "marketing"] },
+  { to: "/history", label: "היסטוריית שינויים", icon: History, roles: ["admin"] },
+  { to: "/settings", label: "הגדרות", icon: Settings, roles: ["admin"] },
 ];
 
 export function AppSidebar() {
-  const { isAdmin, signOut, user } = useAuth();
+  const { isAdmin, hasAnyRole, signOut, user } = useAuth();
   const location = useLocation();
 
-  const visibleItems = navItems.filter((i) => !i.adminOnly || isAdmin);
+  const visibleItems = navItems.filter((i) => !i.roles || isAdmin || hasAnyRole(i.roles));
 
   return (
     <aside className="fixed top-0 right-0 h-screen w-64 bg-sidebar border-l border-sidebar-border flex flex-col shadow-soft z-40">

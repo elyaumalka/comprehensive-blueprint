@@ -210,27 +210,41 @@ function Suppliers() {
   );
 }
 
+const ROLE_OPTIONS = [
+  { v: "admin", l: "מנהלת" },
+  { v: "staff", l: "מוכרת" },
+  { v: "accounting", l: "הנהלת חשבונות" },
+  { v: "marketing", l: "שיווק" },
+  { v: "viewer", l: "צופה" },
+] as const;
+const roleLabel = (r: string) => ROLE_OPTIONS.find((o) => o.v === r)?.l ?? r;
+
 function Users() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["profiles-roles"],
     queryFn: async () => {
-      const [{ data: profiles }, { data: roles }] = await Promise.all([
+      const [{ data: profiles }, { data: roles }, { data: employees }] = await Promise.all([
         supabase.from("profiles").select("id, full_name"),
         supabase.from("user_roles").select("user_id, role"),
+        supabase.from("employees").select("id, full_name, user_id"),
       ]);
-      return (profiles ?? []).map((p) => ({
-        ...p,
-        roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
-      }));
+      return {
+        users: (profiles ?? []).map((p) => ({
+          ...p,
+          roles: (roles ?? []).filter((r) => r.user_id === p.id).map((r) => r.role),
+          employeeId: (employees ?? []).find((e) => e.user_id === p.id)?.id ?? "",
+        })),
+        employees: employees ?? [],
+      };
     },
   });
 
   const setRoleMut = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "staff" | "viewer" }) => {
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
       const { error: delErr } = await supabase.from("user_roles").delete().eq("user_id", userId);
       if (delErr) throw delErr;
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as "admin" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -240,36 +254,64 @@ function Users() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // קישור משתמש לרשומת עובדת (כדי שהשעון והמכירות יעבדו)
+  const linkMut = useMutation({
+    mutationFn: async ({ userId, employeeId }: { userId: string; employeeId: string }) => {
+      // ניתוק קישור קודם של המשתמש
+      await supabase.from("employees").update({ user_id: null }).eq("user_id", userId);
+      if (employeeId) {
+        const { error } = await supabase.from("employees").update({ user_id: userId }).eq("id", employeeId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("הקישור עודכן");
+      qc.invalidateQueries({ queryKey: ["profiles-roles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <Card className="shadow-soft overflow-hidden">
       {isLoading ? (
         <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : !data?.length ? (
+      ) : !data?.users.length ? (
         <EmptyState icon={SettingsIcon} title="אין משתמשות" />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>שם</TableHead>
-              <TableHead>הרשאה</TableHead>
-              <TableHead>פעולות</TableHead>
+              <TableHead>תפקיד נוכחי</TableHead>
+              <TableHead>שינוי תפקיד</TableHead>
+              <TableHead>מקושרת לעובדת</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((u) => (
+            {data.users.map((u) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">{u.full_name ?? u.id.slice(0, 8)}</TableCell>
                 <TableCell>
-                  {u.roles.map((r) => (
-                    <Badge key={r} className={r === "admin" ? "bg-gold text-gold-foreground mr-1" : "mr-1"}>
-                      {r === "admin" ? "מנהלת" : r === "staff" ? "עובדת" : "צופה"}
-                    </Badge>
-                  ))}
+                  {u.roles.length ? u.roles.map((r) => (
+                    <Badge key={r} className={r === "admin" ? "bg-gold text-gold-foreground mr-1" : "mr-1"}>{roleLabel(r)}</Badge>
+                  )) : <span className="text-muted-foreground text-sm">—</span>}
                 </TableCell>
-                <TableCell className="space-x-1 space-x-reverse">
-                  <Button variant="outline" size="sm" onClick={() => setRoleMut.mutate({ userId: u.id, role: "admin" })}>מנהלת</Button>
-                  <Button variant="outline" size="sm" onClick={() => setRoleMut.mutate({ userId: u.id, role: "staff" })}>עובדת</Button>
-                  <Button variant="outline" size="sm" onClick={() => setRoleMut.mutate({ userId: u.id, role: "viewer" })}>צופה</Button>
+                <TableCell>
+                  <Select value={u.roles[0] ?? ""} onValueChange={(role) => setRoleMut.mutate({ userId: u.id, role })}>
+                    <SelectTrigger className="h-8 w-40"><SelectValue placeholder="בחרי תפקיד" /></SelectTrigger>
+                    <SelectContent>
+                      {ROLE_OPTIONS.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select value={u.employeeId || "none"} onValueChange={(v) => linkMut.mutate({ userId: u.id, employeeId: v === "none" ? "" : v })}>
+                    <SelectTrigger className="h-8 w-44"><SelectValue placeholder="ללא" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">ללא קישור</SelectItem>
+                      {data.employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
               </TableRow>
             ))}

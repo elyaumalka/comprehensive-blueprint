@@ -42,9 +42,10 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, Plus, Loader2, Lock, Truck } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Loader2, Lock, Truck, UserPlus } from "lucide-react";
 import { SupplierDetailSheet } from "@/components/SupplierDetailSheet";
 import { PAYMENT_TERMS } from "@/lib/supplier-terms";
+import { createClient } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/settings")({
   component: () => (
@@ -272,11 +273,15 @@ function Users() {
   });
 
   return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <AddUserDialog />
+      </div>
     <Card className="shadow-soft overflow-hidden">
       {isLoading ? (
         <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : !data?.users.length ? (
-        <EmptyState icon={SettingsIcon} title="אין משתמשות" />
+        <EmptyState icon={SettingsIcon} title="אין משתמשות" description="הוסיפי משתמשת ראשונה עם הכפתור למעלה" />
       ) : (
         <Table>
           <TableHeader>
@@ -319,5 +324,90 @@ function Users() {
         </Table>
       )}
     </Card>
+    </div>
+  );
+}
+
+function AddUserDialog() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", role: "staff" });
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email || form.password.length < 6) {
+      toast.error("חובה מייל וסיסמה של לפחות 6 תווים");
+      return;
+    }
+    setLoading(true);
+    try {
+      // יצירת המשתמש דרך client זמני כדי לא להחליף את ההתחברות של המנהלת
+      const url = import.meta.env.VITE_SUPABASE_URL as string;
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+      const tmp = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { data, error } = await tmp.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { full_name: form.full_name } },
+      });
+      if (error) throw error;
+      const newId = data.user?.id;
+      if (newId) {
+        // קביעת התפקיד הנבחר (במקום ברירת המחדל מהטריגר)
+        await supabase.from("user_roles").delete().eq("user_id", newId);
+        await supabase.from("user_roles").insert({ user_id: newId, role: form.role as "admin" });
+      }
+      toast.success("המשתמשת נוצרה בהצלחה");
+      qc.invalidateQueries({ queryKey: ["profiles-roles"] });
+      setForm({ full_name: "", email: "", password: "", role: "staff" });
+      setOpen(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="gap-2"><UserPlus className="w-4 h-4" />משתמשת חדשה</Button>
+      </DialogTrigger>
+      <DialogContent dir="rtl">
+        <DialogHeader><DialogTitle>הוספת משתמשת (login)</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>שם מלא</Label>
+            <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>מייל *</Label>
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+          </div>
+          <div className="space-y-2">
+            <Label>סיסמה * <span className="text-xs text-muted-foreground">(לפחות 6 תווים)</span></Label>
+            <Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+          </div>
+          <div className="space-y-2">
+            <Label>תפקיד</Label>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ROLE_OPTIONS.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            לאחר היצירה אפשר לקשר את המשתמשת לרשומת עובדת בטבלה (לשעון נוכחות). אם מופעל אימות מייל בפרויקט — המשתמשת תצטרך לאשר את המייל לפני התחברות.
+          </p>
+          <DialogFooter>
+            <Button type="submit" disabled={loading} className="gap-2">
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}יצירת משתמשת
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -94,6 +94,7 @@ const supSchema = z.object({
 function Suppliers() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {

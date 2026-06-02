@@ -42,6 +42,7 @@ import {
   UserX,
   MessageCircle,
   GitMerge,
+  History,
 } from "lucide-react";
 
 export type Customer = {
@@ -132,6 +133,44 @@ export function CustomerDetailSheet({
   const validSales = (sales ?? []).filter((s) => !s.is_cancelled);
   const totalSpent = validSales.reduce((s, r) => s + Number(r.total ?? 0), 0);
   const purchaseCount = validSales.length;
+
+  // ציר זמן: שינויים מתועדים על כרטיס הלקוחה (audit) — נגיש למנהלת
+  const { data: auditEvents } = useQuery({
+    queryKey: ["customer-audit", customer?.id],
+    enabled: !!customer?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_log")
+        .select("action, created_at")
+        .eq("table_name", "customers")
+        .eq("record_id", customer!.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return data ?? [];
+    },
+  });
+
+  // בניית ציר זמן משולב: רכישות + שינויים + סטטוסים אוטומטיים
+  const timeline = (() => {
+    const ev: { at: string; text: string; kind: "sale" | "cancel" | "system" }[] = [];
+    (sales ?? []).forEach((s) => {
+      ev.push({
+        at: s.created_at,
+        text: s.is_cancelled ? `עסקה בוטלה (#${s.receipt_number})` : `רכישה בוצעה — ${fmtCurrency(Number(s.total))} (#${s.receipt_number})`,
+        kind: s.is_cancelled ? "cancel" : "sale",
+      });
+    });
+    (auditEvents ?? []).forEach((a) => {
+      ev.push({
+        at: a.created_at,
+        text: a.action === "INSERT" ? "כרטיס הלקוחה נוצר במערכת" : "פרטי הלקוחה עודכנו",
+        kind: "system",
+      });
+    });
+    if (c?.is_returning) ev.push({ at: c.created_at, text: "זוהתה כלקוחה חוזרת (VIP)", kind: "system" });
+    if (c?.whatsapp_group) ev.push({ at: c.created_at, text: "צורפה לקבוצת וואטסאפ", kind: "system" });
+    return ev.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  })();
 
   const saveMut = useMutation({
     mutationFn: async (cust: Customer) => {
@@ -307,6 +346,26 @@ export function CustomerDetailSheet({
                 ))}
               </TableBody>
             </Table>
+          )}
+        </Card>
+
+        {/* ציר זמן — הערות מערכת אוטומטיות */}
+        <Card className="p-4 shadow-soft mt-4">
+          <h3 className="font-semibold mb-3 flex items-center gap-2"><History className="w-4 h-4" />ציר זמן ופעילות</h3>
+          {!timeline.length ? (
+            <p className="text-sm text-muted-foreground py-2">אין פעילות מתועדת עדיין</p>
+          ) : (
+            <ol className="space-y-3">
+              {timeline.slice(0, 20).map((e, i) => (
+                <li key={i} className="flex gap-3 text-sm">
+                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${e.kind === "cancel" ? "bg-alert" : e.kind === "sale" ? "bg-gold" : "bg-muted-foreground"}`} />
+                  <div>
+                    <p>{e.text}</p>
+                    <p className="text-xs text-muted-foreground">{fmtDate(e.at)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
         </Card>
 

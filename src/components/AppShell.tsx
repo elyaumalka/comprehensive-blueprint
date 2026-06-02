@@ -1,11 +1,15 @@
 import { ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
+import { GlobalSearch } from "./GlobalSearch";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       <AppSidebar />
       <main className="mr-64 min-h-screen">
+        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur border-b border-border px-8 py-3 print:hidden">
+          <GlobalSearch />
+        </div>
         <div className="px-8 py-6 max-w-[1600px]">{children}</div>
       </main>
     </div>

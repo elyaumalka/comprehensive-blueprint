@@ -33,9 +33,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Settings as SettingsIcon, Plus, Loader2, Lock, Truck } from "lucide-react";
+import { SupplierDetailSheet } from "@/components/SupplierDetailSheet";
+import { PAYMENT_TERMS } from "@/lib/supplier-terms";
 
 export const Route = createFileRoute("/settings")({
   component: () => (

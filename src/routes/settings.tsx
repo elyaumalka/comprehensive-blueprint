@@ -190,7 +190,7 @@ function Suppliers() {
           </TableHeader>
           <TableBody>
             {data.map((s) => (
-              <TableRow key={s.id}>
+              <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelected(s)}>
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell className="text-muted-foreground">{s.contact_name ?? "-"}</TableCell>
                 <TableCell className="text-muted-foreground">{s.field ?? "-"}</TableCell>
@@ -201,6 +201,11 @@ function Suppliers() {
           </TableBody>
         </Table>
       )}
+      <SupplierDetailSheet
+        supplier={selected}
+        open={!!selected}
+        onOpenChange={(v) => { if (!v) setSelected(null); }}
+      />
     </Card>
   );
 }

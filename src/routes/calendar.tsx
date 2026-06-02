@@ -30,8 +30,11 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Calendar as CalendarIcon, Plus, Loader2, AlertCircle, User } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Loader2, AlertCircle, User, List, ChevronRight, ChevronLeft } from "lucide-react";
 import { fmtDateTime } from "@/lib/format";
+
+const WEEKDAYS_HE = ["א", "ב", "ג", "ד", "ה", "ו", "ש"];
+const MONTHS_HE = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
 export const Route = createFileRoute("/calendar")({
   component: () => (
@@ -76,6 +79,9 @@ function CalendarPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+  const [view, setView] = useState<"list" | "month">("list");
+  const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
+  const [prefill, setPrefill] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["tasks"],
@@ -150,15 +156,36 @@ function CalendarPage() {
         title="יומן ומשימות"
         description="ניהול משימות, פגישות ותזכורות עם שיוך לעובדות"
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="w-4 h-4" />משימה חדשה</Button>
-            </DialogTrigger>
-            <TaskForm assignees={profiles ?? []} onSubmit={(v) => createMut.mutate(v)} loading={createMut.isPending} />
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border p-0.5">
+              <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="gap-1 h-8" onClick={() => setView("list")}>
+                <List className="w-4 h-4" />רשימה
+              </Button>
+              <Button variant={view === "month" ? "secondary" : "ghost"} size="sm" className="gap-1 h-8" onClick={() => setView("month")}>
+                <CalendarIcon className="w-4 h-4" />לוח שנה
+              </Button>
+            </div>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2" onClick={() => setPrefill("")}><Plus className="w-4 h-4" />משימה חדשה</Button>
+              </DialogTrigger>
+              <TaskForm key={prefill || "manual"} initialDate={prefill} assignees={profiles ?? []} onSubmit={(v) => createMut.mutate(v)} loading={createMut.isPending} />
+            </Dialog>
+          </div>
         }
       />
 
+      {view === "month" ? (
+        <MonthGrid
+          cursor={cursor}
+          tasks={all}
+          onPrev={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+          onNext={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+          onToday={() => setCursor(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })}
+          onDayClick={(dateStr) => { setPrefill(`${dateStr}T09:00`); setOpen(true); }}
+        />
+      ) : (
+      <>
       <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
         <TabsList className="mb-4">
           <TabsTrigger value="all">הכל ({counts.all})</TabsTrigger>
@@ -209,7 +236,86 @@ function CalendarPage() {
           </div>
         )}
       </Card>
+      </>
+      )}
     </AppShell>
+  );
+}
+
+function MonthGrid({
+  cursor,
+  tasks,
+  onPrev,
+  onNext,
+  onToday,
+  onDayClick,
+}: {
+  cursor: Date;
+  tasks: { id: string; title: string; due_date: string | null; priority: string; status: string }[];
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  onDayClick: (dateStr: string) => void;
+}) {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const dayStr = (d: number) => `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const tasksForDay = (d: number) =>
+    tasks.filter((t) => t.due_date && t.due_date.slice(0, 10) === dayStr(d));
+
+  return (
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-lg">{MONTHS_HE[month]} {year}</h3>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" onClick={onToday}>היום</Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onNext}><ChevronLeft className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onPrev}><ChevronRight className="w-4 h-4" /></Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {WEEKDAYS_HE.map((w) => (
+          <div key={w} className="text-center text-xs font-medium text-muted-foreground py-1">{w}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} className="min-h-20 rounded-md bg-muted/20" />;
+          const dayTasks = tasksForDay(d);
+          const isToday = dayStr(d) === todayStr;
+          return (
+            <button
+              key={i}
+              onClick={() => onDayClick(dayStr(d))}
+              className={`min-h-20 rounded-md border p-1 text-right align-top hover:bg-muted/40 transition-colors ${isToday ? "border-gold bg-gold/5" : "border-border"}`}
+            >
+              <div className={`text-xs font-medium mb-1 ${isToday ? "text-gold" : "text-muted-foreground"}`}>{d}</div>
+              <div className="space-y-0.5">
+                {dayTasks.slice(0, 3).map((t) => (
+                  <div
+                    key={t.id}
+                    className={`text-[10px] leading-tight truncate rounded px-1 py-0.5 ${t.status === "done" ? "line-through opacity-60 bg-secondary" : PRIO[t.priority]?.c ?? "bg-secondary"}`}
+                  >
+                    {t.title}
+                  </div>
+                ))}
+                {dayTasks.length > 3 && <div className="text-[10px] text-muted-foreground">+{dayTasks.length - 3}</div>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-3 text-center">לחצי על יום כדי להוסיף משימה לתאריך זה</p>
+    </Card>
   );
 }
 
@@ -217,15 +323,17 @@ function TaskForm({
   assignees,
   onSubmit,
   loading,
+  initialDate,
 }: {
   assignees: { id: string; full_name: string | null }[];
   onSubmit: (v: z.infer<typeof taskSchema>) => void;
   loading: boolean;
+  initialDate?: string;
 }) {
   const [form, setForm] = useState<z.infer<typeof taskSchema>>({
     title: "",
     description: "",
-    due_date: "",
+    due_date: initialDate || "",
     priority: "medium",
     assigned_to: "",
   });

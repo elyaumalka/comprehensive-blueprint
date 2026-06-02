@@ -13,6 +13,7 @@ import {
   Settings,
   LogOut,
   Scissors,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { to: "/products", label: "מוצרים ומלאי", icon: Package },
   { to: "/sales", label: "מכירות", icon: ShoppingBag },
   { to: "/orders", label: "הזמנות", icon: ClipboardList },
+  { to: "/returns", label: "החזרות והחלפות", icon: RotateCcw },
   { to: "/accounting", label: "הנהלת חשבונות", icon: Wallet, adminOnly: true },
   { to: "/employees", label: "עובדות ושעון", icon: UserCog, adminOnly: true },
   { to: "/calendar", label: "יומן ומשימות", icon: Calendar },

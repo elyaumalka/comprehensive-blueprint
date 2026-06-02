@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SalesRouteImport } from './routes/sales'
+import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
@@ -36,6 +37,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReturnsRoute = ReturnsRouteImport.update({
+  id: '/returns',
+  path: '/returns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductsRoute = ProductsRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/products': typeof ProductsRoute
+  '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/products': typeof ProductsRoute
+  '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
   '/products': typeof ProductsRoute
+  '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/orders'
     | '/products'
+    | '/returns'
     | '/sales'
     | '/settings'
     | '/signup'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/orders'
     | '/products'
+    | '/returns'
     | '/sales'
     | '/settings'
     | '/signup'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/orders'
     | '/products'
+    | '/returns'
     | '/sales'
     | '/settings'
     | '/signup'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OrdersRoute: typeof OrdersRoute
   ProductsRoute: typeof ProductsRoute
+  ReturnsRoute: typeof ReturnsRoute
   SalesRoute: typeof SalesRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/returns': {
+      id: '/returns'
+      path: '/returns'
+      fullPath: '/returns'
+      preLoaderRoute: typeof ReturnsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/products': {
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OrdersRoute: OrdersRoute,
   ProductsRoute: ProductsRoute,
+  ReturnsRoute: ReturnsRoute,
   SalesRoute: SalesRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
@@ -313,3 +334,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

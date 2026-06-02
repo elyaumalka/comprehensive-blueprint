@@ -39,6 +39,8 @@ import {
 import { toast } from "sonner";
 import { Users, Plus, Search, Star, Loader2 } from "lucide-react";
 import { fmtDate } from "@/lib/format";
+import { SECTORS, SOURCES, EVENT_TYPES, LANGUAGES } from "@/lib/customer-options";
+import { CustomerDetailSheet, type Customer } from "@/components/CustomerDetailSheet";
 
 export const Route = createFileRoute("/customers")({
   component: () => (
@@ -54,7 +56,11 @@ const schema = z.object({
   email: z.string().trim().email("מייל לא תקין").max(255).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
   birth_date: z.string().optional().or(z.literal("")),
+  language: z.string().optional().or(z.literal("")),
+  sector: z.string().trim().max(80).optional().or(z.literal("")),
   source: z.string().trim().max(80).optional().or(z.literal("")),
+  referrer_name: z.string().trim().max(120).optional().or(z.literal("")),
+  event_type: z.string().trim().max(80).optional().or(z.literal("")),
   style_notes: z.string().trim().max(2000).optional().or(z.literal("")),
   referred_by_employee_id: z.string().optional().or(z.literal("")),
   is_vip: z.boolean(),
@@ -65,6 +71,8 @@ function CustomersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Customer | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["customers", search],
@@ -83,21 +91,39 @@ function CustomersPage() {
 
   const createMut = useMutation({
     mutationFn: async (input: z.infer<typeof schema>) => {
+      // זיהוי לקוחה חוזרת — אם קיים טלפון זהה במערכת
+      let isReturning = false;
+      if (input.phone) {
+        const { data: existing } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("phone", input.phone)
+          .limit(1);
+        isReturning = !!existing?.length;
+      }
       const payload = {
-        ...input,
+        full_name: input.full_name,
         phone: input.phone || null,
         email: input.email || null,
         city: input.city || null,
         birth_date: input.birth_date || null,
+        language: input.language || "he",
+        sector: input.sector || null,
         source: input.source || null,
+        referrer_name: input.referrer_name || null,
+        event_type: input.event_type || null,
         style_notes: input.style_notes || null,
         referred_by_employee_id: input.referred_by_employee_id || null,
+        is_vip: input.is_vip || isReturning, // לקוחה חוזרת -> VIP אוטומטי
+        is_returning: isReturning,
+        whatsapp_group: input.whatsapp_group,
       };
       const { error } = await supabase.from("customers").insert(payload);
       if (error) throw error;
+      return { isReturning };
     },
-    onSuccess: () => {
-      toast.success("לקוחה נוספה");
+    onSuccess: (res) => {
+      toast.success(res?.isReturning ? "לקוחה חוזרת זוהתה ונוספה (VIP)" : "לקוחה נוספה");
       qc.invalidateQueries({ queryKey: ["customers"] });
       setOpen(false);
     },
@@ -159,7 +185,11 @@ function CustomersPage() {
             </TableHeader>
             <TableBody>
               {data.map((c) => (
-                <TableRow key={c.id}>
+                <TableRow
+                  key={c.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => { setSelected(c as Customer); setSheetOpen(true); }}
+                >
                   <TableCell className="font-medium">{c.full_name}</TableCell>
                   <TableCell className="text-muted-foreground">{c.phone ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.city ?? "-"}</TableCell>
@@ -182,6 +212,8 @@ function CustomersPage() {
           </Table>
         )}
       </Card>
+
+      <CustomerDetailSheet customer={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
     </AppShell>
   );
 }
@@ -199,7 +231,11 @@ function CustomerForm({
     email: "",
     city: "",
     birth_date: "",
+    language: "he",
+    sector: "",
     source: "",
+    referrer_name: "",
+    event_type: "",
     style_notes: "",
     referred_by_employee_id: "",
     is_vip: false,
@@ -230,7 +266,7 @@ function CustomerForm({
   };
 
   return (
-    <DialogContent className="max-w-2xl" dir="rtl">
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
       <DialogHeader>
         <DialogTitle>לקוחה חדשה</DialogTitle>
       </DialogHeader>
@@ -256,8 +292,38 @@ function CustomerForm({
           <Input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} />
         </div>
         <div className="space-y-2">
-          <Label>מקור הגעה</Label>
-          <Input placeholder="המלצה / אינסטגרם / חברה…" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+          <Label>שפה</Label>
+          <Select value={form.language || "he"} onValueChange={(v) => setForm({ ...form, language: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{LANGUAGES.map((l) => <SelectItem key={l.v} value={l.v}>{l.l}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>מגזר</Label>
+          <Select value={form.sector || ""} onValueChange={(v) => setForm({ ...form, sector: v })}>
+            <SelectTrigger><SelectValue placeholder="בחרי מגזר" /></SelectTrigger>
+            <SelectContent>{SECTORS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>מקור פרסום</Label>
+          <Select value={form.source || ""} onValueChange={(v) => setForm({ ...form, source: v })}>
+            <SelectTrigger><SelectValue placeholder="בחרי מקור" /></SelectTrigger>
+            <SelectContent>{SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        {form.source === "המלצה" && (
+          <div className="space-y-2">
+            <Label>שם הממליצה</Label>
+            <Input value={form.referrer_name} onChange={(e) => setForm({ ...form, referrer_name: e.target.value })} />
+          </div>
+        )}
+        <div className="space-y-2">
+          <Label>סוג אירוע</Label>
+          <Select value={form.event_type || ""} onValueChange={(v) => setForm({ ...form, event_type: v })}>
+            <SelectTrigger><SelectValue placeholder="בחרי אירוע" /></SelectTrigger>
+            <SelectContent>{EVENT_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label>הופנתה ע"י עובדת (עמלת משווקת)</Label>

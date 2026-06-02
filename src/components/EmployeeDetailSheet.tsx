@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -286,15 +286,15 @@ export function EmployeeDetailSheet({
   if (!emp) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setEdit(null); }}>
-      <SheetContent dir="rtl" side="left" className="w-full sm:max-w-2xl overflow-y-auto print:max-w-none">
-        <SheetHeader className="text-right">
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setEdit(null); }}>
+      <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto print:max-w-none">
+        <DialogHeader className="text-right">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <SheetTitle className="text-xl">{emp.full_name}</SheetTitle>
-              <SheetDescription>
+              <DialogTitle className="text-xl">{emp.full_name}</DialogTitle>
+              <DialogDescription>
                 {emp.position || "עובדת"} · כרטיס עובד ודוח שנתי
-              </SheetDescription>
+              </DialogDescription>
             </div>
             <div className="flex items-center gap-2 print:hidden">
               <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
@@ -310,7 +310,7 @@ export function EmployeeDetailSheet({
               </Button>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
         {loading ? (
           <div className="py-20 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
@@ -489,8 +489,8 @@ export function EmployeeDetailSheet({
             </Card>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

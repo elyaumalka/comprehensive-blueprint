@@ -27,10 +27,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { UserCog, Plus, Loader2, Lock } from "lucide-react";
 import { fmtCurrency } from "@/lib/format";
+import { EmployeeDetailSheet, type Employee } from "@/components/EmployeeDetailSheet";
 
 export const Route = createFileRoute("/employees")({
   component: () => (
@@ -47,12 +49,16 @@ const schema = z.object({
   email: z.string().trim().max(255).optional().or(z.literal("")),
   hourly_rate: z.coerce.number().min(0).optional(),
   monthly_salary: z.coerce.number().min(0).optional(),
+  commission_pct: z.coerce.number().min(0).max(100).optional(),
+  is_commission_only: z.boolean().optional(),
 });
 
 function EmployeesPage() {
   const { isAdmin } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Employee | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["employees"],
@@ -72,6 +78,8 @@ function EmployeesPage() {
         email: input.email || null,
         hourly_rate: input.hourly_rate ?? null,
         monthly_salary: input.monthly_salary ?? null,
+        commission_pct: input.commission_pct ?? null,
+        is_commission_only: input.is_commission_only ?? false,
       });
       if (error) throw error;
     },
@@ -129,8 +137,15 @@ function EmployeesPage() {
             </TableHeader>
             <TableBody>
               {data.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell className="font-medium">{e.full_name}</TableCell>
+                <TableRow
+                  key={e.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => { setSelected(e as Employee); setSheetOpen(true); }}
+                >
+                  <TableCell className="font-medium">
+                    {e.full_name}
+                    {e.is_commission_only && <Badge variant="outline" className="mr-2 text-xs">משווקת</Badge>}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{e.position ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{e.phone ?? "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{e.hourly_rate ? fmtCurrency(e.hourly_rate) : "-"}</TableCell>
@@ -144,6 +159,8 @@ function EmployeesPage() {
           </Table>
         )}
       </Card>
+
+      <EmployeeDetailSheet employee={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
     </AppShell>
   );
 }
@@ -162,6 +179,8 @@ function EmployeeForm({
     email: "",
     hourly_rate: 0,
     monthly_salary: 0,
+    commission_pct: 0,
+    is_commission_only: false,
   });
   return (
     <DialogContent dir="rtl">
@@ -194,6 +213,14 @@ function EmployeeForm({
         <div className="space-y-2">
           <Label>שכר חודשי</Label>
           <Input type="number" min="0" value={form.monthly_salary} onChange={(e) => setForm({ ...form, monthly_salary: Number(e.target.value) })} />
+        </div>
+        <div className="space-y-2">
+          <Label>אחוז עמלה %</Label>
+          <Input type="number" min="0" max="100" step="0.5" value={form.commission_pct} onChange={(e) => setForm({ ...form, commission_pct: Number(e.target.value) })} />
+        </div>
+        <div className="flex items-center justify-between rounded-md border px-3 py-2">
+          <Label>עמלה בלבד (משווקת)</Label>
+          <Switch checked={form.is_commission_only} onCheckedChange={(v) => setForm({ ...form, is_commission_only: v })} />
         </div>
         <DialogFooter className="col-span-2">
           <Button type="submit" disabled={loading} className="gap-2">

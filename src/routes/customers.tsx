@@ -22,6 +22,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -49,6 +56,7 @@ const schema = z.object({
   birth_date: z.string().optional().or(z.literal("")),
   source: z.string().trim().max(80).optional().or(z.literal("")),
   style_notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  referred_by_employee_id: z.string().optional().or(z.literal("")),
   is_vip: z.boolean(),
   whatsapp_group: z.boolean(),
 });
@@ -83,6 +91,7 @@ function CustomersPage() {
         birth_date: input.birth_date || null,
         source: input.source || null,
         style_notes: input.style_notes || null,
+        referred_by_employee_id: input.referred_by_employee_id || null,
       };
       const { error } = await supabase.from("customers").insert(payload);
       if (error) throw error;
@@ -192,8 +201,22 @@ function CustomerForm({
     birth_date: "",
     source: "",
     style_notes: "",
+    referred_by_employee_id: "",
     is_vip: false,
     whatsapp_group: false,
+  });
+
+  const { data: employees } = useQuery({
+    queryKey: ["employees-for-referral"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, full_name")
+        .eq("is_active", true)
+        .order("full_name");
+      if (error) throw error;
+      return data;
+    },
   });
 
   const handle = (e: React.FormEvent) => {
@@ -232,9 +255,24 @@ function CustomerForm({
           <Label>תאריך לידה</Label>
           <Input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} />
         </div>
-        <div className="space-y-2 col-span-2">
+        <div className="space-y-2">
           <Label>מקור הגעה</Label>
           <Input placeholder="המלצה / אינסטגרם / חברה…" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label>הופנתה ע"י עובדת (עמלת משווקת)</Label>
+          <Select
+            value={form.referred_by_employee_id || "none"}
+            onValueChange={(v) => setForm({ ...form, referred_by_employee_id: v === "none" ? "" : v })}
+          >
+            <SelectTrigger><SelectValue placeholder="ללא" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">ללא</SelectItem>
+              {(employees ?? []).map((e) => (
+                <SelectItem key={e.id} value={e.id}>{e.full_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2 col-span-2">
           <Label>הערות סגנון</Label>

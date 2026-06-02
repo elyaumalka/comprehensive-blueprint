@@ -158,6 +158,7 @@ export type Database = {
           is_vip: boolean
           language: string | null
           phone: string | null
+          referred_by_employee_id: string | null
           referrer_name: string | null
           sector: string | null
           sizes: Json | null
@@ -182,6 +183,7 @@ export type Database = {
           is_vip?: boolean
           language?: string | null
           phone?: string | null
+          referred_by_employee_id?: string | null
           referrer_name?: string | null
           sector?: string | null
           sizes?: Json | null
@@ -206,6 +208,7 @@ export type Database = {
           is_vip?: boolean
           language?: string | null
           phone?: string | null
+          referred_by_employee_id?: string | null
           referrer_name?: string | null
           sector?: string | null
           sizes?: Json | null
@@ -264,6 +267,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      employee_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          employee_id: string
+          expense_date: string
+          id: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id: string
+          expense_date?: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employee_id?: string
+          expense_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
@@ -1104,6 +1148,7 @@ export type Database = {
           employee_id: string
           id: string
           notes: string | null
+          overtime_minutes: number
           total_minutes: number | null
         }
         Insert: {
@@ -1113,6 +1158,7 @@ export type Database = {
           employee_id: string
           id?: string
           notes?: string | null
+          overtime_minutes?: number
           total_minutes?: number | null
         }
         Update: {
@@ -1122,6 +1168,7 @@ export type Database = {
           employee_id?: string
           id?: string
           notes?: string | null
+          overtime_minutes?: number
           total_minutes?: number | null
         }
         Relationships: [

@@ -18,6 +18,7 @@ import { Route as ProductsRouteImport } from './routes/products'
 import { Route as OrdersRouteImport } from './routes/orders'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as EmployeesRouteImport } from './routes/employees'
 import { Route as CustomersRouteImport } from './routes/customers'
@@ -71,6 +72,11 @@ const LeadsRoute = LeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/customers': typeof CustomersRoute
   '/employees': typeof EmployeesRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/customers': typeof CustomersRoute
   '/employees': typeof EmployeesRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/customers': typeof CustomersRoute
   '/employees': typeof EmployeesRoute
   '/history': typeof HistoryRoute
+  '/inventory': typeof InventoryRoute
   '/leads': typeof LeadsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/employees'
     | '/history'
+    | '/inventory'
     | '/leads'
     | '/login'
     | '/orders'
@@ -190,6 +200,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/employees'
     | '/history'
+    | '/inventory'
     | '/leads'
     | '/login'
     | '/orders'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/employees'
     | '/history'
+    | '/inventory'
     | '/leads'
     | '/login'
     | '/orders'
@@ -227,6 +239,7 @@ export interface RootRouteChildren {
   CustomersRoute: typeof CustomersRoute
   EmployeesRoute: typeof EmployeesRoute
   HistoryRoute: typeof HistoryRoute
+  InventoryRoute: typeof InventoryRoute
   LeadsRoute: typeof LeadsRoute
   LoginRoute: typeof LoginRoute
   OrdersRoute: typeof OrdersRoute
@@ -303,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
@@ -363,6 +383,7 @@ const rootRouteChildren: RootRouteChildren = {
   CustomersRoute: CustomersRoute,
   EmployeesRoute: EmployeesRoute,
   HistoryRoute: HistoryRoute,
+  InventoryRoute: InventoryRoute,
   LeadsRoute: LeadsRoute,
   LoginRoute: LoginRoute,
   OrdersRoute: OrdersRoute,

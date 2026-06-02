@@ -16,6 +16,7 @@ import {
   RotateCcw,
   BarChart3,
   History,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth, type AppRole } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { to: "/customers", label: "לקוחות", icon: Users },
   { to: "/leads", label: "לידים", icon: Sparkles },
   { to: "/products", label: "מוצרים ומלאי", icon: Package },
+  { to: "/inventory", label: "תנועות מלאי", icon: ArrowLeftRight, roles: ["admin", "accounting"] },
   { to: "/sales", label: "מכירות", icon: ShoppingBag },
   { to: "/orders", label: "הזמנות", icon: ClipboardList },
   { to: "/returns", label: "החזרות והחלפות", icon: RotateCcw },

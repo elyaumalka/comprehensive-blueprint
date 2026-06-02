@@ -33,9 +33,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Settings as SettingsIcon, Plus, Loader2, Lock, Truck } from "lucide-react";
+import { SupplierDetailSheet } from "@/components/SupplierDetailSheet";
+import { PAYMENT_TERMS } from "@/lib/supplier-terms";
 
 export const Route = createFileRoute("/settings")({
   component: () => (
@@ -85,6 +94,7 @@ const supSchema = z.object({
 function Suppliers() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<any>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
@@ -143,7 +153,17 @@ function Suppliers() {
               <div className="space-y-2"><Label>תחום</Label><Input value={form.field} onChange={(e) => setForm({ ...form, field: e.target.value })} /></div>
               <div className="space-y-2"><Label>טלפון</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div className="space-y-2"><Label>מייל</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              <div className="space-y-2 col-span-2"><Label>תנאי תשלום</Label><Input value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} /></div>
+              <div className="space-y-2 col-span-2">
+                <Label>תנאי תשלום</Label>
+                <Select value={form.payment_terms} onValueChange={(v) => setForm({ ...form, payment_terms: v })}>
+                  <SelectTrigger><SelectValue placeholder="בחרי תנאי תשלום" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_TERMS.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <DialogFooter className="col-span-2">
                 <Button type="submit" disabled={createMut.isPending} className="gap-2">
                   {createMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}שמירה
@@ -170,7 +190,7 @@ function Suppliers() {
           </TableHeader>
           <TableBody>
             {data.map((s) => (
-              <TableRow key={s.id}>
+              <TableRow key={s.id} className="cursor-pointer" onClick={() => setSelected(s)}>
                 <TableCell className="font-medium">{s.name}</TableCell>
                 <TableCell className="text-muted-foreground">{s.contact_name ?? "-"}</TableCell>
                 <TableCell className="text-muted-foreground">{s.field ?? "-"}</TableCell>
@@ -181,6 +201,11 @@ function Suppliers() {
           </TableBody>
         </Table>
       )}
+      <SupplierDetailSheet
+        supplier={selected}
+        open={!!selected}
+        onOpenChange={(v) => { if (!v) setSelected(null); }}
+      />
     </Card>
   );
 }

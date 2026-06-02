@@ -277,6 +277,7 @@ export type Database = {
           id: string
           includes_vat: boolean
           installments: number | null
+          is_paid: boolean
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           receipt_received: boolean | null
           supplier_id: string | null
@@ -293,6 +294,7 @@ export type Database = {
           id?: string
           includes_vat?: boolean
           installments?: number | null
+          is_paid?: boolean
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           receipt_received?: boolean | null
           supplier_id?: string | null
@@ -309,6 +311,7 @@ export type Database = {
           id?: string
           includes_vat?: boolean
           installments?: number | null
+          is_paid?: boolean
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           receipt_received?: boolean | null
           supplier_id?: string | null
@@ -970,6 +973,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      supplier_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          supplier_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          supplier_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          supplier_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       suppliers: {
         Row: {

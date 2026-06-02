@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -30,8 +30,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Package, Plus, Loader2, AlertCircle } from "lucide-react";
+import { Package, Plus, Loader2, AlertCircle, Boxes, PackageX, Layers } from "lucide-react";
 import { fmtCurrency } from "@/lib/format";
+
+type VariantLite = { stock_qty: number; min_stock_alert: number | null };
 
 export const Route = createFileRoute("/products")({
   component: () => (
@@ -67,6 +69,20 @@ function ProductsPage() {
       return data;
     },
   });
+
+  const summary = useMemo(() => {
+    const list = products ?? [];
+    let totalUnits = 0, outOfStock = 0, lowStock = 0, inventoryValue = 0;
+    for (const p of list) {
+      const variants = (p.product_variants ?? []) as VariantLite[];
+      const stock = variants.reduce((s, v) => s + Number(v.stock_qty ?? 0), 0);
+      totalUnits += stock;
+      inventoryValue += stock * Number(p.cost_price ?? 0);
+      if (stock === 0) outOfStock += 1;
+      else if (variants.some((v) => v.stock_qty <= (v.min_stock_alert ?? 1))) lowStock += 1;
+    }
+    return { totalProducts: list.length, totalUnits, outOfStock, lowStock, inventoryValue };
+  }, [products]);
 
   const createMut = useMutation({
     mutationFn: async (input: z.infer<typeof schema>) => {
@@ -105,6 +121,15 @@ function ProductsPage() {
           )
         }
       />
+
+      {/* דשבורד מלאי */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+        <StockKpi icon={Package} label="מוצרים" value={String(summary.totalProducts)} />
+        <StockKpi icon={Boxes} label="יחידות במלאי" value={String(summary.totalUnits)} />
+        <StockKpi icon={AlertCircle} label="מלאי נמוך" value={String(summary.lowStock)} alert={summary.lowStock > 0} />
+        <StockKpi icon={PackageX} label="אזל מהמלאי" value={String(summary.outOfStock)} alert={summary.outOfStock > 0} />
+        <StockKpi icon={Layers} label="שווי מלאי" value={fmtCurrency(summary.inventoryValue)} />
+      </div>
 
       <Card className="shadow-soft overflow-hidden">
         {isLoading ? (
@@ -164,6 +189,27 @@ function ProductsPage() {
         )}
       </Card>
     </AppShell>
+  );
+}
+
+function StockKpi({
+  icon: Icon,
+  label,
+  value,
+  alert,
+}: {
+  icon: typeof Package;
+  label: string;
+  value: string;
+  alert?: boolean;
+}) {
+  return (
+    <Card className="p-4 shadow-soft">
+      <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+        <Icon className={`w-4 h-4 ${alert ? "text-alert" : ""}`} />{label}
+      </div>
+      <p className={`text-lg font-bold ${alert ? "text-alert" : ""}`}>{value}</p>
+    </Card>
   );
 }
 

@@ -41,6 +41,7 @@ import {
   ShoppingBag,
   UserX,
   MessageCircle,
+  GitMerge,
 } from "lucide-react";
 
 export type Customer = {
@@ -74,7 +75,44 @@ export function CustomerDetailSheet({
 }) {
   const qc = useQueryClient();
   const [edit, setEdit] = useState<Customer | null>(null);
+  const [mergeId, setMergeId] = useState("");
   const c = edit ?? customer;
+
+  // רשימת לקוחות אחרים למיזוג
+  const { data: others } = useQuery({
+    queryKey: ["customers-for-merge", customer?.id],
+    enabled: !!customer?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, full_name, phone")
+        .neq("id", customer!.id)
+        .eq("is_active", true)
+        .order("full_name");
+      return data ?? [];
+    },
+  });
+
+  // מיזוג: העברת כל הרשומות מהכרטיס הכפול לכרטיס הנוכחי, וסימון הכפול כלא פעיל
+  const mergeMut = useMutation({
+    mutationFn: async (dupId: string) => {
+      if (!customer) return;
+      await supabase.from("sales").update({ customer_id: customer.id }).eq("customer_id", dupId);
+      await supabase.from("orders").update({ customer_id: customer.id }).eq("customer_id", dupId);
+      await supabase.from("returns").update({ customer_id: customer.id }).eq("customer_id", dupId);
+      const { error } = await supabase.from("customers")
+        .update({ is_active: false, is_returning: true })
+        .eq("id", dupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("הכרטיסים מוזגו — הרכישות אוחדו לכרטיס זה");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customer-sales", customer?.id] });
+      setMergeId("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   // היסטוריית רכישות
   const { data: sales, isLoading: salesLoading } = useQuery({
@@ -270,6 +308,25 @@ export function CustomerDetailSheet({
               </TableBody>
             </Table>
           )}
+        </Card>
+
+        {/* מיזוג כפילויות */}
+        <Card className="p-4 shadow-soft mt-4">
+          <h3 className="font-semibold mb-1 flex items-center gap-2"><GitMerge className="w-4 h-4" />מיזוג כפילויות</h3>
+          <p className="text-xs text-muted-foreground mb-3">בחרי כרטיס כפול — כל הרכישות וההזמנות שלו יעברו לכרטיס זה, והכפול יסומן כלא פעיל.</p>
+          <div className="flex gap-2">
+            <Select value={mergeId} onValueChange={setMergeId}>
+              <SelectTrigger><SelectValue placeholder="בחרי כרטיס למיזוג…" /></SelectTrigger>
+              <SelectContent>
+                {(others ?? []).map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.full_name}{o.phone ? ` · ${o.phone}` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" disabled={!mergeId || mergeMut.isPending} onClick={() => mergeMut.mutate(mergeId)} className="gap-1 whitespace-nowrap">
+              {mergeMut.isPending && <Loader2 className="w-4 h-4 animate-spin" />}מזג לכאן
+            </Button>
+          </div>
         </Card>
 
         {/* חוק נעילה */}

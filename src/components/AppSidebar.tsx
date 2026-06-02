@@ -15,6 +15,7 @@ import {
   Scissors,
   RotateCcw,
   BarChart3,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { to: "/employees", label: "עובדות ושעון", icon: UserCog, adminOnly: true },
   { to: "/calendar", label: "יומן ומשימות", icon: Calendar },
   { to: "/campaigns", label: "קמפיינים", icon: Megaphone, adminOnly: true },
+  { to: "/history", label: "היסטוריית שינויים", icon: History, adminOnly: true },
   { to: "/settings", label: "הגדרות", icon: Settings, adminOnly: true },
 ];
 
